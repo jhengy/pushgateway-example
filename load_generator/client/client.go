@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/prometheus/client_golang/prometheus/push"
 	"log"
 	"net/http"
 	"time"
@@ -45,6 +46,27 @@ func main() {
 			log.Fatal("Unable to start a http server.")
 		} else {
 			log.Println("successfully started the http server to handle prometheus receiver")
+		}
+	}()
+
+	// periodically push metrics to gateway
+	ticker := time.NewTicker(500 * time.Millisecond)
+	done := make(chan bool)
+	go func(){
+		for {
+			select {
+			case <- done:
+				return
+			case  t := <- ticker.C:
+				fmt.Println("Tick at", t)
+				// pushing the metrics to the pushgateway
+				if err := push.New("http://pushgateway:9091", "grpc_client_job").
+					Collector(grpcMetrics).
+					Grouping("source", "grpc_client").
+					Push(); err != nil {
+					fmt.Println("Could not push completion time to Pushgateway:", err)
+				}
+			}
 		}
 	}()
 
