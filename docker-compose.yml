@@ -11,13 +11,35 @@ services:
     ports:
       - 9090:9090
   
-  pushgateway:
+  pushgateway: # nothing more than a cache to aggregate the prometheus metrics
     image: prom/pushgateway
     ports:
       - 9091:9091
+#  simulator:
+#    build: ./simulator
+#    environment:
+#      - SIMULATOR_JOB_NAME=processor
+#      - SIMULATOR_PUSHGATEWAY_URL=http://pushgateway:9091/
 
-  simulator:
-    build: ./simulator
-    environment: 
-      - SIMULATOR_JOB_NAME=processor
-      - SIMULATOR_PUSHGATEWAY_URL=http://pushgateway:9091/
+  grpcserver:
+    image: golang:1.13
+    volumes:
+      - ./load_generator/server/server.go:/usr/src/main.go
+    environment:
+      - GO111MODULE=on
+    command: ["bash", "-c", "go run /usr/src/main.go"]
+    ports:
+    - 9093:9093
+    - 9092:9092
+
+  grpcclient:
+    image: golang:1.13
+    volumes:
+      - ./load_generator/client/client.go:/usr/src/main.go
+    environment:
+      - GO111MODULE=on
+    command: ["bash", "-c", "go run /usr/src/main.go"]
+    depends_on:
+      - grpcserver
+    ports:
+    - 9094:9094
